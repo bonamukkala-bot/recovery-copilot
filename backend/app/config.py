@@ -11,7 +11,14 @@ class Settings(BaseSettings):
 
     groq_api_key: str = ""
 
+    recovery_admin_api_key: str = ""
+
+    contact_cooldown_minutes: int = 20
+    promise_window_hours: int = 24
+    max_voice_calls_per_session: int = 20
+
     environment: str = "development"
+    dispatch_mode: str = "mock"
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False)
 

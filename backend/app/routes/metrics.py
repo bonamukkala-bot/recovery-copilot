@@ -17,8 +17,15 @@ ESTIMATED_COST_INR = {
 
 @router.get("/metrics")
 async def get_metrics():
+    # Sweep expired pending promises to 'missed' status
+    try:
+        from app.services.promise_tracker import check_and_expire_promises
+        check_and_expire_promises()
+    except Exception as e:
+        print(f"[Promise Tracker Sweep Warning] {e}")
+
     result = supabase.table("events").select(
-        "id, recovery_channel, dispatch_status, outcome_status, created_at, recovered_at"
+        "id, recovery_channel, dispatch_status, outcome_status, created_at, recovered_at, llm_classified, failure_type"
     ).execute()
 
     events = result.data or []
@@ -37,6 +44,14 @@ async def get_metrics():
 
     # --- Contact rate: dispatched actions as a share of all failures ---
     contact_rate = (total_actioned / total_failures * 100) if total_failures else 0.0
+
+    # --- Groq LLM fallback rate: share of processed events taking LLM path (success or flagged fallback) ---
+    llm_events = [
+        e for e in events
+        if e.get("llm_classified") is True or e.get("failure_type") == "flagged_for_review"
+    ]
+    total_llm_classified = len(llm_events)
+    llm_fallback_rate = (total_llm_classified / total_failures * 100) if total_failures else 0.0
 
     # --- Time-to-recovery: average minutes between created_at and recovered_at, recovered events only ---
     durations_minutes = []
@@ -69,6 +84,8 @@ async def get_metrics():
         "total_failures": total_failures,
         "total_actioned": total_actioned,
         "total_recovered": total_recovered,
+        "total_llm_classified": total_llm_classified,
+        "llm_fallback_rate_percent": round(llm_fallback_rate, 1),
         "recovery_rate_percent": round(recovery_rate, 1),
         "contact_rate_percent": round(contact_rate, 1),
         "avg_time_to_recovery_minutes": (

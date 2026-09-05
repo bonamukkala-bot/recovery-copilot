@@ -68,14 +68,13 @@ def classify_failure_llm(
 ) -> Optional[str]:
     """
     LLM fallback classification — only called when rule-based classification
-    returns None. Uses Groq's Llama 3.3 70B per the PRD's stated stack.
-    Returns None (not a guess) if the LLM also can't confidently classify.
+    returns None. Uses Groq.
+    Returns valid failure_type string if confident, or 'flagged_for_review'
+    on exception/failure so it safely routes to human review.
     """
-    print(f"DEBUG - groq_api_key loaded: '{settings.groq_api_key[:10]}...' (length: {len(settings.groq_api_key)})")
-
     if not settings.groq_api_key:
-        return None
-
+        print("[LLM Classification] Missing groq_api_key — flagging for review")
+        return "flagged_for_review"
 
     prompt = f"""You are classifying a failed Razorpay payment into exactly one category.
 
@@ -107,8 +106,8 @@ Respond with only the category name."""
 
         if result in VALID_FAILURE_TYPES:
             return result
-        return None
+        return "flagged_for_review"
 
     except Exception as e:
-        print(f"LLM classification failed: {e}")
-        return None
+        print(f"[LLM Classification Error] {type(e).__name__}: {e}")
+        return "flagged_for_review"

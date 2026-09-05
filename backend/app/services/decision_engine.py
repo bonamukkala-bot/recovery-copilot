@@ -39,6 +39,12 @@ def decide_recovery_action(
             "reason": "Transient bank/network failure — auto-retry with SMS confirmation, no call needed"
         }
 
+    if failure_type == "flagged_for_review":
+        return {
+            "channel": "none",
+            "reason": "LLM classification failed or ambiguous — flagged for human review"
+        }
+
     if amount >= HIGH_VALUE_THRESHOLD:
         return {
             "channel": "voice_call",
